@@ -27,17 +27,20 @@ import java.sql.DriverManager;
  * @version 1.0
  */
 public class ConfigureReader {
-	private static ConfigureReader cr;
-	private Properties serverp;
-	private Properties accountp;
-	private int propertiesStatus;
+
+	private static ConfigureReader cr;// 自体实体
+	private Properties serverp;// 配置设置
+	private Properties accountp;// 账户设置
+	private int propertiesStatus;// 当前配置检查结果
 	private String path;
 	private String fileSystemPath;
 	private String confdir;
 	private String mustLogin;
 	private int port;
 	private String log;
+	private String vc;
 	private String FSPath;
+	private List<ExtendStores> extendStores;
 	private int bufferSize;
 	private String fileBlockPath;
 	private String fileNodePath;
@@ -51,6 +54,7 @@ public class ConfigureReader {
 	private final int DEFAULT_BUFFER_SIZE = 1048576;
 	private final int DEFAULT_PORT = 8080;
 	private final String DEFAULT_LOG_LEVEL = "E";
+	private final String DEFAULT_VC_LEVEL = "STANDARD";
 	private final String DEFAULT_MUST_LOGIN = "O";
 	private final String DEFAULT_FILE_SYSTEM_PATH;
 	private final String DEFAULT_FILE_SYSTEM_PATH_SETTING = "DEFAULT";
@@ -67,6 +71,7 @@ public class ConfigureReader {
 	public static final int CANT_CREATE_TF_PATH = 7;
 	public static final int CANT_CONNECT_DB = 8;
 	public static final int HTTPS_SETTING_ERROR = 9;
+	public static final int INVALID_VC = 10;
 	public static final int LEGAL_PROPERTIES = 0;
 	private static Thread accountPropertiesUpdateDaemonThread;
 	private String timeZone;
@@ -91,6 +96,7 @@ public class ConfigureReader {
 		this.confdir = this.path + File.separator + "conf" + File.separator;
 		this.serverp = new Properties();
 		this.accountp = new Properties();
+		extendStores = new ArrayList<>();
 		final File serverProp = new File(this.confdir + SERVER_PROPERTIES_FILE);
 		if (!serverProp.isFile()) {
 			Printer.instance.print("服务器配置文件不存在，需要初始化服务器配置。");
@@ -204,6 +210,14 @@ public class ConfigureReader {
 		return this.bufferSize;
 	}
 
+	public String getInitBuffSize() {
+		if (this.serverp != null && serverp.getProperty("buff.size") != null) {
+			return serverp.getProperty("buff.size");
+		} else {
+			return DEFAULT_BUFFER_SIZE + "";
+		}
+	}
+
 	public boolean inspectLogLevel(final LogLevel l) {
 		int o = 0;
 		int m = 0;
@@ -260,8 +274,31 @@ public class ConfigureReader {
 		return this.fileSystemPath;
 	}
 
+	public String getInitFileSystemPath() {
+		if (this.serverp != null && serverp.getProperty("FS.path") != null) {
+			return serverp.getProperty("FS.path").equals("DEFAULT") ? DEFAULT_FILE_SYSTEM_PATH
+					: serverp.getProperty("FS.path");
+		} else {
+			return DEFAULT_FILE_SYSTEM_PATH;
+		}
+	}
+
 	public String getFileBlockPath() {
 		return this.fileBlockPath;
+	}
+
+	/**
+	 * 
+	 * <h2>获取全部扩展存储区</h2>
+	 * <p>
+	 * 得到全部扩展存储区列表，以便进行文件块的存取操作。
+	 * </p>
+	 * 
+	 * @author 青阳龙野(kohgylw)
+	 * @return java.util.List<kohgylw.kiftd.server.pojo.ExtendStores> 所有扩展存储区对象的列表
+	 */
+	public List<ExtendStores> getExtendStores() {
+		return extendStores;
 	}
 
 	public String getFileNodePath() {
@@ -297,12 +334,98 @@ public class ConfigureReader {
 		}
 	}
 
+	public LogLevel getInitLogLevel() {
+		if (serverp != null && serverp.getProperty("log") != null) {
+			switch (serverp.getProperty("log")) {
+			case "N": {
+				return LogLevel.None;
+			}
+			case "R": {
+				return LogLevel.Runtime_Exception;
+			}
+			case "E": {
+				return LogLevel.Event;
+			}
+			default:
+				return LogLevel.Event;
+			}
+		} else {
+			return LogLevel.Event;
+		}
+	}
+
+	/**
+	 * 
+	 * <h2>获得验证码等级</h2>
+	 * <p>
+	 * 返回设置的验证码等级枚举类（kohgylw.kiftd.server.enumeration.VCLevel），包括：关闭（CLOSE）、简单（Simplified）、标准（Standard）
+	 * </p>
+	 * 
+	 * @author 青阳龙野(kohgylw)
+	 * @return kohgylw.kiftd.server.enumeration.VCLevel 验证码等级
+	 */
+	public VCLevel getVCLevel() {
+		if (this.vc == null) {
+			this.vc = "";
+		}
+		final String vc = this.vc;
+		switch (vc) {
+		case "STANDARD": {
+			return VCLevel.Standard;
+		}
+		case "SIMP": {
+			return VCLevel.Simplified;
+		}
+		case "CLOSE": {
+			return VCLevel.Close;
+		}
+		default: {
+			return null;
+		}
+		}
+	}
+
+	public VCLevel getInitVCLevel() {
+		if (serverp != null && serverp.getProperty("VC.level") != null) {
+			switch (serverp.getProperty("VC.level")) {
+			case "STANDARD":
+				return VCLevel.Standard;
+			case "SIMP":
+				return VCLevel.Simplified;
+			case "CLOSE":
+				return VCLevel.Close;
+			default:
+				return VCLevel.Standard;
+			}
+		} else {
+			return VCLevel.Standard;
+		}
+	}
+
 	public int getPort() {
 		return this.port;
 	}
 
+	public String getInitPort() {
+		if (this.serverp != null && serverp.getProperty("port") != null) {
+			return serverp.getProperty("port");
+		} else {
+			return DEFAULT_PORT + "";
+		}
+	}
+
 	public int getPropertiesStatus() {
 		return this.propertiesStatus;
+	}
+	
+	/**
+	 * 
+	 * <h2>重新检查各项设置</h2>
+	 * <p>在服务器启动前再次检查各设置，实现某些设置的“即插即用”。</p>
+	 * @author 青阳龙野(kohgylw)
+	 */
+	public void reTestServerPropertiesAndEffect() {
+		this.propertiesStatus = testServerPropertiesAndEffect();
 	}
 
 	public boolean doUpdate(final ServerSetting ss) {
@@ -326,10 +449,30 @@ public class ConfigureReader {
 			}
 			}
 			this.serverp.setProperty("log", loglevelCode);
+			switch (ss.getVc()) {
+			case Standard: {
+				this.serverp.setProperty("VC.level", "STANDARD");
+				break;
+			}
+			case Close: {
+				this.serverp.setProperty("VC.level", "CLOSE");
+				break;
+			}
+			case Simplified: {
+				this.serverp.setProperty("VC.level", "SIMP");
+				break;
+			}
+			}
 			this.serverp.setProperty("port", ss.getPort() + "");
 			this.serverp.setProperty("FS.path",
 					(ss.getFsPath() + File.separator).equals(this.DEFAULT_FILE_SYSTEM_PATH) ? "DEFAULT"
 							: ss.getFsPath());
+			for (short i = 1; i < 32; i++) {
+				this.serverp.remove("FS.extend." + i);// 清空旧的扩展存储区设置
+			}
+			for (ExtendStores es : ss.getExtendStores()) {
+				this.serverp.setProperty("FS.extend." + es.getIndex(), es.getPath().getAbsolutePath());
+			}
 			if (this.testServerPropertiesAndEffect() == 0) {
 				try {
 					this.serverp.store(new FileOutputStream(this.confdir + SERVER_PROPERTIES_FILE),
@@ -387,6 +530,21 @@ public class ConfigureReader {
 			}
 			this.log = logs;
 		}
+		final String vcl = this.serverp.getProperty("VC.level");
+		if (vcl == null) {
+			Printer.instance.print("警告：未找到登录验证码配置，将采用默认值（STANDARD）。");
+			this.vc = DEFAULT_VC_LEVEL;
+		} else {
+			switch (vcl) {
+			case "STANDARD":
+			case "SIMP":
+			case "CLOSE":
+				this.vc = vcl;
+				break;
+			default:
+				return INVALID_VC;
+			}
+		}
 		final String bufferSizes = this.serverp.getProperty("buff.size");
 		if (bufferSizes == null) {
 			Printer.instance.print("警告：未找到缓冲大小配置，将采用默认值（1048576）。");
@@ -415,10 +573,34 @@ public class ConfigureReader {
 		if (!fileSystemPath.endsWith(File.separator)) {
 			fileSystemPath = fileSystemPath + File.separator;
 		}
+		extendStores.clear();
+		for (short i = 1; i < 32; i++) {
+			if (serverp.getProperty("FS.extend." + i) != null) {
+				ExtendStores es = new ExtendStores();
+				es.setPath(new File(serverp.getProperty("FS.extend." + i)));
+				es.setIndex(i);
+				extendStores.add(es);
+			}
+		}
 		final File fsFile = new File(this.fileSystemPath);
 		if (!fsFile.isDirectory() || !fsFile.canRead() || !fsFile.canWrite()) {
 			Printer.instance.print("错误：文件系统路径[" + this.fileSystemPath + "]无效，该路径必须指向一个具备读写权限的文件夹。");
 			return 3;
+		}
+		for (ExtendStores es : extendStores) {
+			if (!es.getPath().isDirectory() || !es.getPath().canRead() || !es.getPath().canWrite()) {
+				Printer.instance.print("错误：扩展存储区路径[" + es.getPath().getAbsolutePath() + "]无效，该路径必须指向一个具备读写权限的文件夹。");
+				return 3;
+			}
+		}
+		for (int i = 0; i < extendStores.size() - 1; i++) {
+			for (int j = i + 1; j < extendStores.size(); j++) {
+				if (extendStores.get(i).getPath().equals(extendStores.get(j).getPath())) {
+					Printer.instance.print(
+							"错误：扩展存储区路径[" + extendStores.get(j).getPath().getAbsolutePath() + "]无效，该路径已被其他扩展存储区占用。");
+					return 3;
+				}
+			}
 		}
 		this.fileBlockPath = this.fileSystemPath + "fileblocks" + File.separator;
 		final File fbFile = new File(this.fileBlockPath);
@@ -438,6 +620,7 @@ public class ConfigureReader {
 			Printer.instance.print("错误：无法创建临时文件存放区[" + this.TFPath + "]。");
 			return 7;
 		}
+
 		if ("true".equals(serverp.getProperty("mysql.enable"))) {
 			dbDriver = "com.mysql.cj.jdbc.Driver";
 			String url = serverp.getProperty("mysql.url", "127.0.0.1/kift");
@@ -457,7 +640,6 @@ public class ConfigureReader {
 				Connection testConn = DriverManager.getConnection(dbURL, dbUser, dbPwd);
 				testConn.close();
 			} catch (Exception e) {
-				// TODO 自动生成的 catch 块
 				Printer.instance.print(
 						"错误：无法连接至自定义数据库：" + dbURL + "（user=" + dbUser + ",password=" + dbPwd + "），请确重新配置MySQL数据库相关项。");
 				return 8;
@@ -513,25 +695,9 @@ public class ConfigureReader {
 		dsp.setProperty("mustLogin", DEFAULT_MUST_LOGIN);
 		dsp.setProperty("port", DEFAULT_PORT + "");
 		dsp.setProperty("log", DEFAULT_LOG_LEVEL);
+		dsp.setProperty("VC.level", DEFAULT_VC_LEVEL);
 		dsp.setProperty("FS.path", DEFAULT_FILE_SYSTEM_PATH_SETTING);
 		dsp.setProperty("buff.size", DEFAULT_BUFFER_SIZE + "");
-		if ("true".equals(serverp.getProperty("mysql.enable"))) {
-			dsp.setProperty("mysql.enable", "false");
-			dsp.setProperty("mysql.url",
-					serverp == null ? "127.0.0.1/kift" : serverp.getProperty("mysql.url", "127.0.0.1/kift"));
-			dsp.setProperty("mysql.user", dbUser == null ? "root" : dbUser);
-			dsp.setProperty("mysql.password", dbPwd == null ? "" : dbPwd);
-			dsp.setProperty("mysql.timezone", timeZone == null ? "GMT%2B8" : timeZone);
-		}
-		if ("true".equals(serverp.getProperty("https.enable"))) {
-			dsp.setProperty("https.enable", "false");
-			if (serverp.getProperty("https.keypass") != null) {
-				dsp.setProperty("https.keypass", serverp.getProperty("https.keypass"));
-			}
-			if (serverp.getProperty("https.port") != null) {
-				dsp.setProperty("https.port", serverp.getProperty("https.port"));
-			}
-		}
 		try {
 			dsp.store(new FileOutputStream(this.confdir + SERVER_PROPERTIES_FILE),
 					"<This is the default kiftd server setting file. >");
@@ -758,4 +924,87 @@ public class ConfigureReader {
 		return httpsPort;
 	}
 
+	/**
+	 * 
+	 * <h2>获得某一账户的上传文件体积限制</h2>
+	 * <p>
+	 * 该方法用于判断指定用户上传的文件是否超过规定值。使用时需传入用户账户名字符串，返回该用户的最大上传限制。
+	 * </p>
+	 * 
+	 * @author 青阳龙野(kohgylw)
+	 * @param account
+	 *            java.lang.String 需要检查的账户名
+	 * @return long 以byte为单位的最大阈值，若返回0则设置错误，若小于0则不限制。
+	 */
+	public long getUploadFileSize(String account) {
+		String defaultMaxSizeP = accountp.getProperty("defaultMaxSize");
+		if (account == null) {
+			return getMaxSizeByString(defaultMaxSizeP);
+		} else {
+			String accountMaxSizeP = accountp.getProperty(account + ".maxSize");
+			return accountMaxSizeP == null ? getMaxSizeByString(defaultMaxSizeP) : getMaxSizeByString(accountMaxSizeP);
+		}
+	}
+
+	/**
+	 * 
+	 * <h2>上传文件大小设置值转化方法</h2>
+	 * <p>
+	 * 该方法用于将配置文件中的设置值转化为long类型的数值，例如当输入字符串“1 KB”时，输出1024，输入“5GB”时，输出5368709120。
+	 * </p>
+	 * <p>
+	 * 输入字符串格式规则：{数值}{存储单位（可选）}。其中，存储单位可使用下列字符串之一指代（不区分大小写）：
+	 * </p>
+	 * <ul>
+	 * <li>KB 或 K</li>
+	 * <li>MB 或 M</li>
+	 * <li>GB 或 G</li>
+	 * </ul>
+	 * <p>
+	 * 当不写存储单位时，则以“B”（byte）为单位进行转换。
+	 * </p>
+	 * 
+	 * @author 青阳龙野(kohgylw)
+	 * @param in
+	 *            java.lang.String 要转换的字符串内容，格式应为“{数值}{存储单位（可选）}”，例如“1024KB”或“10mb”。
+	 * @return long 以Byte为单位计算的体积值，若为0则代表设置错误，若为负数则代表无限制
+	 */
+	private long getMaxSizeByString(String in) {
+		long r = 0L;
+		// 首先，判断是否为null，若是，则直接返回-1。
+		if (in == null || in.length() <= 0) {
+			return -1L;
+		}
+		// 接下来判断是否有单位，若字符串总长小于1，则必无单位，否则可能有单位。
+		try {
+			if (in.length() > 1) {
+				String value = in.substring(0, in.length() - 1).trim();
+				String unit = in.substring(in.length() - 1).toLowerCase();
+				if (in.length() > 2) {
+					if (in.toLowerCase().charAt(in.length() - 1) == 'b') {
+						unit = in.substring(in.length() - 2, in.length() - 1).toLowerCase();
+						value = in.substring(0, in.length() - 2).trim();
+					}
+				}
+				switch (unit) {
+				case "k":
+					r = Integer.parseInt(value) * 1024L;
+					break;
+				case "m":
+					r = Integer.parseInt(value) * 1048576L;
+					break;
+				case "g":
+					r = Integer.parseInt(value) * 1073741824L;
+					break;
+				default:
+					r = Integer.parseInt(in.trim());
+					break;
+				}
+			} else {
+				r = Integer.parseInt(in.trim());
+			}
+		} catch (Exception e) {
+		}
+		return r;
+	}
 }

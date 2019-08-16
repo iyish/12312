@@ -17,8 +17,9 @@ import java.util.List;
 public class CheckUploadFilesRespons {
 	
 	private String checkResult;//检查结果
-	private String uploadKey;//上传凭证
 	private List<String> pereFileNameList;//重复列表
+	private String overSizeFile;//超限文件
+	private String maxUploadFileSize;//最大上传体积
 	
 	public String getCheckResult() {
 		return checkResult;
@@ -26,16 +27,22 @@ public class CheckUploadFilesRespons {
 	public void setCheckResult(String checkResult) {
 		this.checkResult = checkResult;
 	}
-	public String getUploadKey() {
-		return uploadKey;
-	}
-	public void setUploadKey(String uploadKey) {
-		this.uploadKey = uploadKey;
-	}
 	public List<String> getPereFileNameList() {
 		return pereFileNameList;
 	}
 	public void setPereFileNameList(List<String> pereFileNameList) {
 		this.pereFileNameList = pereFileNameList;
+	}
+	public String getOverSizeFile() {
+		return overSizeFile;
+	}
+	public void setOverSizeFile(String overSizeFile) {
+		this.overSizeFile = overSizeFile;
+	}
+	public String getMaxUploadFileSize() {
+		return maxUploadFileSize;
+	}
+	public void setMaxUploadFileSize(String maxUploadFileSize) {
+		this.maxUploadFileSize = maxUploadFileSize;
 	}
 }

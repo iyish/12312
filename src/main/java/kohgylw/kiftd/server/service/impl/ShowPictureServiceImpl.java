@@ -25,6 +25,8 @@ public class ShowPictureServiceImpl implements ShowPictureService {
 	private NodeMapper fm;
 	@Resource
 	private Gson gson;
+	@Resource
+	private FileBlockUtil fbu;
 
 	/**
 	 * 
@@ -89,8 +91,8 @@ public class ShowPictureServiceImpl implements ShowPictureService {
 			if (fileId != null) {
 				Node node = fm.queryById(fileId);
 				if (node != null) {
-					File pBlock = new File(ConfigureReader.instance().getFileBlockPath(), node.getFilePath());
-					if (pBlock.exists()) {
+					File pBlock = fbu.getFileFromBlocks(node);
+					if (pBlock != null && pBlock.exists()) {
 						try {
 							int pSize = Integer.parseInt(node.getFileSize());
 							if (pSize < 3) {

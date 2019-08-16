@@ -104,8 +104,6 @@ public class ConsoleRunner {
 			Printer.instance.print("正在初始化服务器...");
 			if (ConfigureReader.instance().getPropertiesStatus() == 0) {
 				this.awaiting();
-			} else {
-				Printer.instance.print("服务器参数配置错误，无法启动kiftd，请检查。");
 			}
 			return;
 		});
@@ -119,7 +117,30 @@ public class ConsoleRunner {
 		} else if (ConsoleRunner.ctl.start()) {
 			Printer.instance.print("kiftd服务器已启动，可以正常访问了，您可以使用 -status 指令查看运行状态。");
 		} else {
-			Printer.instance.print("错误：kiftd服务器未能启动，请重试或检查设置。");
+			if (ConfigureReader.instance().getPropertiesStatus() != 0) {
+				switch (ConfigureReader.instance().getPropertiesStatus()) {
+				case ConfigureReader.INVALID_PORT:
+					Printer.instance.print("错误：kiftd服务器未能启动，端口设置无效。");
+					break;
+				case ConfigureReader.INVALID_BUFFER_SIZE:
+					Printer.instance.print("错误：kiftd服务器未能启动，缓存设置无效。");
+					break;
+				case ConfigureReader.INVALID_FILE_SYSTEM_PATH:
+					Printer.instance.print("错误：kiftd服务器未能启动，文件系统路径或某一扩展存储区设置无效。");
+					break;
+				case ConfigureReader.INVALID_LOG:
+					Printer.instance.print("错误：kiftd服务器未能启动，日志设置无效。");
+					break;
+				case ConfigureReader.INVALID_VC:
+					Printer.instance.print("错误：kiftd服务器未能启动，登录验证码设置无效。");
+					break;
+				default:
+					Printer.instance.print("错误：kiftd服务器未能启动，请重试或检查设置。");
+					break;
+				}
+			} else {
+				Printer.instance.print("错误：kiftd服务器未能启动，请重试或检查设置。");
+			}
 		}
 	}
 
